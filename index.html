@@ -49,6 +49,10 @@
       font-weight: bold;
     }
 
+    select {
+      width: 245px;
+    }
+
     .meter {
       margin-left: 5px;
       position: relative;
@@ -240,8 +244,8 @@
       }
       // actual device selected
       else {
-          audioElement.muted = false
           audioElement.setSinkId(deviceId).catch(e => console.error(e))
+          audioElement.muted = false
           audioElement.play()
       }
   }
