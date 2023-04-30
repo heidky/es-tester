@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ES Tester</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+  
+  <style>
+    body {
+      background-color: #333;
+      font-family: Arial, Helvetica, sans-serif;
+      padding-left: 30px;
+    }
+    h1 {
+      color: white;
+    }
+    header {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+    }
+
+    .meter {
+      margin-left: 30px;
+      position: relative;
+      height: 32px;
+      width: 32px;
+      background-color: #555;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .meter > div {
+      position: absolute;
+      bottom:0;
+      left: 0;
+      right: 0;
+      background-color: coral;
+      transition: top .5s ease 0s;
+    }
+  </style>
+
+</head>
+<body>
+  <header>
+    <h1>ES Tester</h1>
+
+    <div class="meter">
+      <div></div>
+    </div>
+  </header>
+
+  <input type="number" id="freq" value="300" min="0" max="2000" step="10"/>
+  <input type="number" id="gain" value="0.0" step="0.01" min="0.00" max="1.00" pattern="^\d*(\.\d{0,2})?$" onchange="changeGain(0)"/>
+  <button id="play" onclick="onPlay()">Play [Space]</button>
+  <br>
+  <select id="device-select"></select>
+
+
+  <script>
+    let isPlaying = false
+
+    const playButton = document.querySelector("#play")
+    const gainInput = document.querySelector("#gain")
+    const freqInput = document.querySelector("#freq")
+    const meterIndicator = document.querySelector(".meter > div")
+
+    const gain = new Tone.Gain(0).toDestination()
+    const fadeGain = new Tone.Gain(0).connect(gain)
+    const osc = new Tone.Oscillator(300, 'sine').connect(fadeGain)
+    
+    function onPlay() {
+      if(isPlaying) {
+        playButton.innerText = "Play [Space]"
+        fadeGain.gain.value = 0
+        osc.stop()
+        isPlaying = false
+      }
+      else {
+        playButton.innerText = "Stop [Space]"
+        osc.frequency = Number(freqInput.value) || 300
+        fadeGain.gain.value = 0
+        fadeGain.gain.linearRampTo(1, 5)
+        osc.start()
+        isPlaying = true
+      }
+    }
+
+    function changeGain(deltaValue) {
+      const value = Number(gainInput.value) || 0
+
+      let newValue = value + deltaValue
+      if(newValue > 1) newValue = 1.00
+      if(newValue < 0) newValue = 0.00
+
+      gain.gain.linearRampTo(newValue, 0.1)
+      gainInput.value = Math.round(newValue * 100) / 100
+    }
+
+    document.addEventListener("keydown", e => {
+      console.log(e.key);
+      if(e.key === ' ') {
+        onPlay()
+        e.preventDefault()
+      }
+      if(e.key === 'ArrowUp') {
+        changeGain(+0.01)
+      }
+      if(e.key === 'ArrowDown') {
+        changeGain(-0.01)
+      }
+      if(e.key === 'ArrowLeft') {
+        changeGain(-0.05)
+      }
+      if(e.key === 'ArrowRight') {
+        changeGain(+0.05)
+      }
+    })
+
+
+    setInterval(() => {
+      const v = fadeGain.gain.value
+      meterIndicator.style = (`top:${(1-v)*100}%;` + (v === 1 ? "background-color:SpringGreen;" : ""))
+    }, 1000/10)
+
+
+
+  const deviceSelect = document.querySelector("select#device-select")
+
+  async function askDevicePermission() {
+      let devices = await navigator.mediaDevices.enumerateDevices()
+      let hasPermission = devices.some(d => d.deviceId !== '')
+
+      if(!hasPermission) {
+          // hack to open popup
+          const stream = await navigator.mediaDevices.getUserMedia({audio: true})
+          // close the hack stream
+          stream.getTracks().forEach(t => t.stop())
+      }
+
+      devices = await navigator.mediaDevices.enumerateDevices()
+      console.log(devices)
+      return devices.some(d => d.deviceId !== '')
+  }
+
+  async function updateDeviceList() {
+      if(await askDevicePermission()) {
+          // get filtered devices
+          const allDevices = await navigator.mediaDevices.enumerateDevices()
+          const devices = allDevices.filter(
+              d => d.deviceId !== ""
+              && d.kind === "audiooutput"
+              && d.deviceId !== "default"
+              && d.deviceId !== "communications")
+
+          // update select content, preserve current selected value
+          const preservedValue = deviceSelect.value
+          deviceSelect.innerHTML = devices.reduce(
+              (prev, curr) => prev + `<option value='${curr.deviceId}'>${curr.label}</option>\n`,
+              "<option value='0'>OFF</option>\n")
+          deviceSelect.value = preservedValue
+      }
+      else {
+          alert("Cannot obtain device list")
+      }
+  }
+
+  function setSelectedDevice(deviceId) {
+      // off selected
+      if(deviceId == 0) {
+          audioElement.muted = true
+          audioElement.pause()
+      }
+      // actual device selected
+      else {
+          audioElement.muted = false
+          audioElement.setSinkId(deviceId).catch(e => console.error(e))
+          audioElement.play()
+      }
+  }
+
+  // create output destination
+  const audioDestination = window.Tone.getContext().createMediaStreamDestination()
+  const audioElement = new Audio()
+  audioElement.muted = true
+  audioElement.srcObject = audioDestination.stream
+
+  // setup device select events
+  deviceSelect.innerHTML = "<option value='0'>OFF</option>\n"
+  deviceSelect.onclick = () => updateDeviceList()
+  deviceSelect.onchange = e => setSelectedDevice(e.target.value)
+
+
+  </script>
+</body>
+</html>
