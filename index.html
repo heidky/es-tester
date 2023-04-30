@@ -124,12 +124,15 @@
     const freqInput = document.querySelector("#freq")
     const meterIndicator = document.querySelector(".meter > div")
 
+    const audioElement = new Audio()
+
     const gain = new Tone.Gain(0)
     const fadeGain = new Tone.Gain(0).connect(gain)
     const osc = new Tone.Oscillator(300, 'sine').connect(fadeGain)
 
 
     function startOscillator() {
+      audioElement.muted = false
       playButton.innerHTML = "Stop <span>[Space]</span>"
       osc.frequency = Number(freqInput.value) || 300
       fadeGain.gain.value = 0
@@ -139,6 +142,7 @@
     }
 
     function stopOscillator() {
+      audioElement.muted = true
       playButton.innerHTML = "Play <span>[Space]</span>"
       fadeGain.gain.value = 0
       osc.stop()
@@ -171,15 +175,19 @@
       }
       if(e.key === 'ArrowUp') {
         changeGain(+0.01)
+        e.preventDefault()
       }
       if(e.key === 'ArrowDown') {
         changeGain(-0.01)
+        e.preventDefault()
       }
       if(e.key === 'ArrowLeft') {
         changeGain(-0.05)
+        e.preventDefault()
       }
       if(e.key === 'ArrowRight') {
         changeGain(+0.05)
+        e.preventDefault()
       }
     })
 
@@ -251,7 +259,6 @@
   const audioDestination = window.Tone.getContext().createMediaStreamDestination()
   gain.connect(audioDestination)
 
-  const audioElement = new Audio()
   audioElement.muted = true
   audioElement.srcObject = audioDestination.stream
 
